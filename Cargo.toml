@@ -1,0 +1,19 @@
+[package]
+name = "code_mmunity_server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4"
+actix-files = "0.6.2"
+actix-cors = "0.6.3"
+serde = { version = "1.0.145", features = ["derive"] }
+[dependencies.uuid]
+version = "1.1.2"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
