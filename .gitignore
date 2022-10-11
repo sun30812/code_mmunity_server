@@ -1,1 +1,5 @@
 /target
+/cert/DigiCertGlobalRootCA.crt.pem
+/env_for_release.sh
+/env_for_test.sh
+/local.settings.json

@@ -4,17 +4,69 @@
 //! 메서드들로 구성되어 있다.
 
 use actix_web::{post, HttpResponse, Responder};
+use mysql::prelude::*;
+use mysql::*;
+use std::env;
+use std::path::Path;
 
-/// 공감 추가를 요청받았을 때 수행하는 동작
-#[post("/add_likes")]
-pub async fn increment_likes(id: String) -> impl Responder {
-    println!("Increment Likes: {}", id);
-    HttpResponse::Created()
-}
+/// 공감 관련 작업을 요청받았을 때 수행하는 동작
+#[post("/api/likes")]
+pub async fn modify_likes(mode: String, id: String) -> impl Responder {
+    let ssl =
+        match env::var("USE_SSL") {
+            Ok(value) => {
+                if value == "true" {
+                    Some(SslOpts::default().with_root_cert_path(Some(Path::new(
+                        "./cert/DigiCertGlobalRootCA.crt.pem",
+                    ))))
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        };
+    let opts = OptsBuilder::new()
+        .ip_or_hostname(Some(
+            env::var("DB_SERVER").expect("DB_SERVER가 설정되지 않음"),
+        ))
+        .tcp_port(
+            env::var("DB_PORT")
+                .expect("DB_PORT가 설정되지 않음")
+                .parse::<u16>()
+                .expect("DB_PORT가 올바른 형식이 아님"),
+        )
+        .user(Some(env::var("DB_USER").expect("DB_USER가 설정되지 않음")))
+        .pass(Some(
+            env::var("DB_PASSWD").expect("DB_PASSWD가 설정되지 않음"),
+        ))
+        .db_name(Some(
+            env::var("DB_DATABASE").expect("DB_DATABASE가 설정되지 않음"),
+        ))
+        .ssl_opts(ssl);
+    let pool = Pool::new(opts).unwrap();
+    let mut conn = pool.get_conn().unwrap();
+    if mode == "increment" {
+        conn.exec_drop(
+            r"update post
+        set likes = likes + 1
+        where id = :id",
+            params! {
+                "id" => id
+            },
+        )
+        .unwrap();
+    } else {
+        conn.exec_drop(
+            r"update post
+        set likes = likes - 1
+        where id = :id",
+            params! {
+                "id" => id
+            },
+        )
+        .unwrap();
+    }
 
-/// 공감 감소를 요청받았을 때 수행하는 동작
-#[post("/decrement_likes")]
-pub async fn decrement_likes(id: String) -> impl Responder {
-    println!("Decrement Likes: {}", id);
+    println!("Updated Likes");
     HttpResponse::Created()
 }

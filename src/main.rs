@@ -1,4 +1,3 @@
-use crate::likes::decrement_likes;
 use actix_cors::Cors;
 use actix_web::{App, HttpServer};
 use std::env;
@@ -15,9 +14,11 @@ mod post;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let addr = Ipv4Addr::UNSPECIFIED;
-    let port = match env::var("APP_PORT") {
-        Ok(value) => value.parse().expect("APP_PORT가 숫자가 아닙니다."),
-        Err(_) => 8080,
+    let port = match env::var("FUNCTIONS_CUSTOMHANDLER_PORT") {
+        Ok(value) => value
+            .parse()
+            .expect("FUNCTIONS_CUSTOMHANDLER_PORT가 숫자가 아닙니다."),
+        Err(_) => 3000,
     };
     println!("서버가 작동됩니다.");
     HttpServer::new(|| {
@@ -25,8 +26,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .service(post::get_posts)
-            .service(likes::increment_likes)
-            .service(decrement_likes)
+            .service(likes::modify_likes)
             .service(post::new)
     })
     .bind((addr, port))?
