@@ -7,7 +7,7 @@
 //! 이곳에서 수행한다.
 
 use actix_web::web::Json;
-use actix_web::{get, post, HttpResponse, Responder};
+use actix_web::{get, post, HttpResponse, Responder, web};
 use mysql::prelude::*;
 use mysql::*;
 use serde::{Deserialize, Serialize};
@@ -31,6 +31,8 @@ pub struct Post {
     pub title: String,
     /// 포스트를 작성한 유저의 ID(보여지는 ID) 이다.
     pub user_name: String,
+    /// 포스트에 작성된 프로그래밍 언어 종류이다.
+    pub language: String,
     /// 포스트 내용이다.
     pub data: String,
     /// 포스트의 공감 수 이다.
@@ -42,12 +44,13 @@ pub struct Post {
 }
 
 impl Post {
-    pub fn new(uid: String, title: String, user: String, data: String) -> Self {
+    pub fn new(uid: String, title: String, user: String, language: String, data: String) -> Self {
         Self {
             id: 0,
             uid,
             title,
             user_name: user,
+            language,
             data,
             likes: 0,
             report_count: 0,
@@ -56,7 +59,7 @@ impl Post {
     }
 }
 
-/// JSON 을 통해 새로 등롥해야 할 포스트를 받을 때 필요한 구조체이다.
+/// JSON 을 통해 새로 등록해야 할 포스트를 받을 때 필요한 구조체이다.
 ///
 ///
 #[derive(Deserialize, Serialize, Debug)]
@@ -64,13 +67,14 @@ pub struct PostRequest {
     uid: String,
     title: String,
     user_name: String,
+    language: String,
     data: String,
 }
 
-/// 포스트에 대해 GET 요청을 받는 경우의 동작을 정의한 메서드이다.
+/// 포스트에 대해 GET 요청을 받는 경우의 전체 포스트를 전달하는 동작을 정의한 메서드이다.
 ///
 #[get("/api/posts")]
-pub async fn get_posts(post_id: String) -> impl Responder {
+pub async fn get_posts() -> impl Responder {
     let ssl =
         match env::var("USE_SSL") {
             Ok(value) => {
@@ -104,14 +108,15 @@ pub async fn get_posts(post_id: String) -> impl Responder {
         .ssl_opts(ssl);
     let pool = Pool::new(opts).unwrap();
     let mut conn = pool.get_conn().unwrap();
-    let mut results = conn
+    let results = conn
         .query_map(
             "select * from post",
-            |(id, uid, title, user_name, data, likes, report_count, create_at)| Post {
+            |(id, uid, title, user_name, language, data, likes, report_count, create_at)| Post {
                 id,
                 uid,
                 title,
                 user_name,
+                language,
                 data,
                 likes,
                 report_count,
@@ -119,26 +124,87 @@ pub async fn get_posts(post_id: String) -> impl Responder {
             },
         )
         .unwrap();
-    let test = Post::new(
-        "gn$ikjshk34343".to_string(),
-        "test".to_string(),
-        "테스트".to_string(),
-        "hello, db".to_string(),
-    );
-    results.push(test);
-    println!("{:?}", results);
     HttpResponse::Ok()
         .insert_header(("Content-Type", "application/json;charset=utf-8"))
         .json(results)
 }
 
+/// 단일 포스트에 대해 GET 요청을 받는 경우의 단일 포스트를 반환하는 동작을 정의한 메서드이다.
+///
+#[get("/api/posts/{post_id}")]
+pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
+    let ssl =
+        match env::var("USE_SSL") {
+            Ok(value) => {
+                if value == "true" {
+                    Some(SslOpts::default().with_root_cert_path(Some(Path::new(
+                        "./cert/DigiCertGlobalRootCA.crt.pem",
+                    ))))
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        };
+    let opts = OptsBuilder::new()
+        .ip_or_hostname(Some(
+            env::var("DB_SERVER").expect("DB_SERVER가 설정되지 않음"),
+        ))
+        .tcp_port(
+            env::var("DB_PORT")
+                .expect("DB_PORT가 설정되지 않음")
+                .parse::<u16>()
+                .expect("DB_PORT가 올바른 형식이 아님"),
+        )
+        .user(Some(env::var("DB_USER").expect("DB_USER가 설정되지 않음")))
+        .pass(Some(
+            env::var("DB_PASSWD").expect("DB_PASSWD가 설정되지 않음"),
+        ))
+        .db_name(Some(
+            env::var("DB_DATABASE").expect("DB_DATABASE가 설정되지 않음"),
+        ))
+        .ssl_opts(ssl);
+    let pool = Pool::new(opts).unwrap();
+    let mut conn = pool.get_conn().unwrap();
+    let result = conn
+        .query_first(format!("select * from post where id={}", post_id))
+        .unwrap()
+        .map(
+            |(
+                 id,
+                 uid,
+                 title,
+                 user_name,
+                 language,
+                 data,
+                 likes,
+                 report_count,
+                 create_at,
+             )| Post {
+                id,
+                uid,
+                title,
+                user_name,
+                language,
+                data,
+                likes,
+                report_count,
+                create_at,
+            },
+        );
+    HttpResponse::Ok()
+        .insert_header(("Content-Type", "application/json;charset=utf-8"))
+        .json(result)
+}
+
 #[post("/api/posts")]
 pub async fn new(request: Json<PostRequest>) -> impl Responder {
     let new_post = Post::new(
-        request.uid.to_string(),
-        request.title.to_string(),
-        request.user_name.to_string(),
-        request.data.to_string(),
+        request.uid.clone(),
+        request.title.clone(),
+        request.user_name.clone(),
+        request.language.clone(),
+        request.data.clone(),
     );
     let ssl =
         match env::var("USE_SSL") {
@@ -174,12 +240,13 @@ pub async fn new(request: Json<PostRequest>) -> impl Responder {
     let pool = Pool::new(opts).unwrap();
     let mut conn = pool.get_conn().unwrap();
     conn.exec_drop(
-        r"insert into post(uid, title, user_name, data, likes, report_count)
-        values(:uid, :title, :user_name, :data, :likes, :report_count)",
+        r"insert into post(uid, title, user_name, language, data, likes, report_count)
+        values(:uid, :title, :user_name, :language, :data, :likes, :report_count)",
         params! {
             "uid" => new_post.uid,
             "title" => new_post.title,
             "user_name" => new_post.user_name,
+            "language" => new_post.language,
             "data" => new_post.data,
             "likes" => new_post.likes,
             "report_count" => new_post.report_count,

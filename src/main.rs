@@ -26,6 +26,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .service(post::get_posts)
+            .service(post::get_post)
             .service(likes::modify_likes)
             .service(post::new)
     })
