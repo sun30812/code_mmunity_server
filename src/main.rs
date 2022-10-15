@@ -14,13 +14,11 @@ mod post;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let addr = Ipv4Addr::UNSPECIFIED;
-    let port = match env::var("FUNCTIONS_CUSTOMHANDLER_PORT") {
-        Ok(value) => value
-            .parse()
-            .expect("FUNCTIONS_CUSTOMHANDLER_PORT가 숫자가 아닙니다."),
-        Err(_) => 3000,
+    let port = match env::var("APP_PORT") {
+        Ok(value) => value.parse().expect("APP_PORT가 숫자가 아닙니다."),
+        Err(_) => 8080,
     };
-    println!("서버가 작동됩니다.");
+    println!("{}번 포트에서 서버가 작동됩니다.", port);
     HttpServer::new(|| {
         let cors = Cors::permissive();
         App::new()

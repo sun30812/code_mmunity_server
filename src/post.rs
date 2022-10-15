@@ -7,7 +7,7 @@
 //! 이곳에서 수행한다.
 
 use actix_web::web::Json;
-use actix_web::{get, post, HttpResponse, Responder, web};
+use actix_web::{get, post, web, HttpResponse, Responder};
 use mysql::prelude::*;
 use mysql::*;
 use serde::{Deserialize, Serialize};
@@ -75,6 +75,7 @@ pub struct PostRequest {
 ///
 #[get("/api/posts")]
 pub async fn get_posts() -> impl Responder {
+    println!("GET /api/posts");
     let ssl =
         match env::var("USE_SSL") {
             Ok(value) => {
@@ -133,6 +134,7 @@ pub async fn get_posts() -> impl Responder {
 ///
 #[get("/api/posts/{post_id}")]
 pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
+    println!("GET /api/posts with ID");
     let ssl =
         match env::var("USE_SSL") {
             Ok(value) => {
@@ -170,17 +172,7 @@ pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
         .query_first(format!("select * from post where id={}", post_id))
         .unwrap()
         .map(
-            |(
-                 id,
-                 uid,
-                 title,
-                 user_name,
-                 language,
-                 data,
-                 likes,
-                 report_count,
-                 create_at,
-             )| Post {
+            |(id, uid, title, user_name, language, data, likes, report_count, create_at)| Post {
                 id,
                 uid,
                 title,
@@ -199,6 +191,7 @@ pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
 
 #[post("/api/posts")]
 pub async fn new(request: Json<PostRequest>) -> impl Responder {
+    println!("POST /api/posts");
     let new_post = Post::new(
         request.uid.clone(),
         request.title.clone(),
