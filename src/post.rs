@@ -110,7 +110,7 @@ pub async fn get_posts() -> impl Responder {
     let mut conn = pool.get_conn().unwrap();
     let results = conn
         .query_map(
-            "select * from post",
+            "select id, uid, title, user_name, language, substr(data, 1, 35), likes, report_count, create_at from post",
             |(id, uid, title, user_name, language, data, likes, report_count, create_at)| Post {
                 id,
                 uid,
@@ -253,6 +253,5 @@ pub async fn new(request: Json<PostRequest>) -> impl Responder {
         },
     )
     .unwrap();
-
     HttpResponse::Created()
 }

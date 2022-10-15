@@ -3,15 +3,28 @@
 //! `likes`는 코드뮤니티에서 공감 관련 기능 처리를 위한
 //! 메서드들로 구성되어 있다.
 
-use actix_web::{post, HttpResponse, Responder};
+use actix_web::{post, web, HttpResponse, Responder};
 use mysql::prelude::*;
 use mysql::*;
+use serde::Deserialize;
 use std::env;
 use std::path::Path;
 
+#[derive(Deserialize)]
+pub enum LikeMode {
+    Increment,
+    Decrement,
+}
+
+#[derive(Deserialize)]
+pub struct LikeRequest {
+    id: i64,
+    mode: LikeMode,
+}
+
 /// 공감 관련 작업을 요청받았을 때 수행하는 동작
 #[post("/api/likes")]
-pub async fn modify_likes(mode: String, id: String) -> impl Responder {
+pub async fn modify_likes(info: web::Query<LikeRequest>) -> impl Responder {
     let ssl =
         match env::var("USE_SSL") {
             Ok(value) => {
@@ -45,28 +58,34 @@ pub async fn modify_likes(mode: String, id: String) -> impl Responder {
         .ssl_opts(ssl);
     let pool = Pool::new(opts).unwrap();
     let mut conn = pool.get_conn().unwrap();
-    if mode == "increment" {
-        conn.exec_drop(
-            r"update post
+
+    let result = match info.mode {
+        LikeMode::Increment => {
+            conn.exec_drop(
+                r"update post
         set likes = likes + 1
         where id = :id",
-            params! {
-                "id" => id
-            },
-        )
-        .unwrap();
-    } else {
-        conn.exec_drop(
-            r"update post
+                params! {
+                    "id" => info.id.clone()
+                },
+            )
+            .unwrap();
+            println!("Incremented Likes");
+            HttpResponse::Created()
+        }
+        LikeMode::Decrement => {
+            conn.exec_drop(
+                r"update post
         set likes = likes - 1
         where id = :id",
-            params! {
-                "id" => id
-            },
-        )
-        .unwrap();
-    }
-
-    println!("Updated Likes");
-    HttpResponse::Created()
+                params! {
+                    "id" => info.id.clone()
+                },
+            )
+            .unwrap();
+            println!("Decremented Likes");
+            HttpResponse::Created()
+        }
+    };
+    result
 }

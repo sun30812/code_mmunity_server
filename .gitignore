@@ -1,5 +1,6 @@
 /target
-/cert/DigiCertGlobalRootCA.crt.pem
+/cert
 /env_for_release.sh
 /env_for_test.sh
 /local.settings.json
+/.DS_STORE
