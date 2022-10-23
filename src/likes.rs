@@ -18,7 +18,7 @@ pub enum LikeMode {
 
 #[derive(Deserialize)]
 pub struct LikeRequest {
-    id: i64,
+    post_id: i64,
     mode: LikeMode,
 }
 
@@ -64,9 +64,9 @@ pub async fn modify_likes(info: web::Query<LikeRequest>) -> impl Responder {
             conn.exec_drop(
                 r"update post
         set likes = likes + 1
-        where id = :id",
+        where post_id = :post_id",
                 params! {
-                    "id" => info.id.clone()
+                    "post_id" => info.post_id.clone()
                 },
             )
             .unwrap();
@@ -77,9 +77,9 @@ pub async fn modify_likes(info: web::Query<LikeRequest>) -> impl Responder {
             conn.exec_drop(
                 r"update post
         set likes = likes - 1
-        where id = :id",
+        where post_id = :post_id",
                 params! {
-                    "id" => info.id.clone()
+                    "post_id" => info.post_id.clone()
                 },
             )
             .unwrap();
