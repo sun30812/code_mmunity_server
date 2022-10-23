@@ -200,9 +200,14 @@ pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
                 )
             },
         );
-    HttpResponse::Ok()
-        .insert_header(("Content-Type", "application/json;charset=utf-8"))
-        .json(result)
+    match result {
+        Some(result) => HttpResponse::Ok()
+            .insert_header(("Content-Type", "application/json;charset=utf-8"))
+            .json(result),
+        None => HttpResponse::NotFound()
+            .insert_header(("Content-Type", "application/text;charset=utf-8"))
+            .body("요청한 post_id는 존재하지 않는 포스트 입니다."),
+    }
 }
 
 #[post("/api/posts")]
@@ -247,7 +252,7 @@ pub async fn make_post(request: Json<PostRequest>) -> impl Responder {
         .ssl_opts(ssl);
     let pool = Pool::new(opts).unwrap();
     let mut conn = pool.get_conn().unwrap();
-    conn.exec_drop(
+    match conn.exec_drop(
         r"insert into post(user_id, title, language, data, likes, report_count)
         values(:user_id, :title, :language, :data, :likes, :report_count)",
         params! {
@@ -258,7 +263,10 @@ pub async fn make_post(request: Json<PostRequest>) -> impl Responder {
             "likes" => new_post.likes,
             "report_count" => new_post.report_count,
         },
-    )
-    .unwrap();
-    HttpResponse::Created()
+    ) {
+        Ok(_) => HttpResponse::Created(),
+        Err(_) => HttpResponse::InternalServerError(),
+    }
+    // .unwrap();
+    // HttpResponse::Created()
 }

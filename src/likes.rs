@@ -3,7 +3,7 @@
 //! `likes`는 코드뮤니티에서 공감 관련 기능 처리를 위한
 //! 메서드들로 구성되어 있다.
 
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{patch, web, HttpResponse, Responder};
 use mysql::prelude::*;
 use mysql::*;
 use serde::Deserialize;
@@ -23,8 +23,9 @@ pub struct LikeRequest {
 }
 
 /// 공감 관련 작업을 요청받았을 때 수행하는 동작
-#[post("/api/likes")]
+#[patch("/api/likes")]
 pub async fn modify_likes(info: web::Query<LikeRequest>) -> impl Responder {
+    println!("PATCH /api/likes");
     let ssl =
         match env::var("USE_SSL") {
             Ok(value) => {
@@ -61,30 +62,38 @@ pub async fn modify_likes(info: web::Query<LikeRequest>) -> impl Responder {
 
     let result = match info.mode {
         LikeMode::Increment => {
-            conn.exec_drop(
+            match conn.exec_drop(
                 r"update post
         set likes = likes + 1
         where post_id = :post_id",
                 params! {
                     "post_id" => info.post_id.clone()
                 },
-            )
-            .unwrap();
-            println!("Incremented Likes");
-            HttpResponse::Created()
+            ) {
+                Ok(_) => HttpResponse::Created()
+                    .insert_header(("Content-Type", "application/text;charset=utf-8;"))
+                    .body("Increment likes"),
+                Err(error) => HttpResponse::BadRequest()
+                    .insert_header(("Content-Type", "application/text;charset=utf-8;"))
+                    .body(error.to_string()),
+            }
         }
         LikeMode::Decrement => {
-            conn.exec_drop(
+            match conn.exec_drop(
                 r"update post
         set likes = likes - 1
         where post_id = :post_id",
                 params! {
                     "post_id" => info.post_id.clone()
                 },
-            )
-            .unwrap();
-            println!("Decremented Likes");
-            HttpResponse::Created()
+            ) {
+                Ok(_) => HttpResponse::Created()
+                    .insert_header(("Content-Type", "application/text;charset=utf-8;"))
+                    .body("Decrement likes"),
+                Err(error) => HttpResponse::BadRequest()
+                    .insert_header(("Content-Type", "application/text;charset=utf-8;"))
+                    .body(error.to_string()),
+            }
         }
     };
     result
