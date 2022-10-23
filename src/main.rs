@@ -5,6 +5,7 @@ use std::net::Ipv4Addr;
 
 mod likes;
 mod post;
+mod user;
 
 /// 서버의 시작점이다.
 ///
@@ -23,10 +24,11 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::permissive();
         App::new()
             .wrap(cors)
+            .service(user::new_user)
             .service(post::get_posts)
             .service(post::get_post)
             .service(likes::modify_likes)
-            .service(post::new)
+            .service(post::make_post)
     })
     .bind((addr, port))?
     .run()

@@ -4,3 +4,4 @@
 /env_for_test.sh
 /local.settings.json
 /.DS_STORE
+.vscode/*

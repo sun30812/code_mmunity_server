@@ -14,9 +14,12 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::Path;
 
+use crate::user::User;
+
 /// 코드뮤니티에 쓰이는 포스트 객체이다.
 ///
-/// 실제로 포스트를 생성하려면 생성자인 `new()`를 대신 사용해야한다.
+/// 실제로 새 포스트를 생성하려면 생성자인 `new()`를 대신 사용해야한다.  
+/// 만일 DB에서 포스트를 받아오는 경우 `from_db()`를 사용하면 된다.
 /// # 예제
 /// ```
 /// let my_post = Post::new("user_name", "this is my post");
@@ -24,37 +27,60 @@ use std::path::Path;
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Post {
     /// 포스트의 고유 ID 이다. DB에서 auto_increment에 의해 값이 자동으로 증가한다.
-    pub id: i64,
+    pub post_id: u64,
     /// 포스트를 작성한 유저의 실제 구분 ID이다.
-    pub uid: String,
+    pub user_id: String,
     /// 포스트의 제목이다.
     pub title: String,
-    /// 포스트를 작성한 유저의 ID(보여지는 ID) 이다.
+    /// 포스트를 작성한 유저의 이름이다.
     pub user_name: String,
     /// 포스트에 작성된 프로그래밍 언어 종류이다.
     pub language: String,
     /// 포스트 내용이다.
     pub data: String,
     /// 포스트의 공감 수 이다.
-    pub likes: i64,
+    pub likes: u64,
     /// 포스트가 신고당한 횟수이다.
-    pub report_count: i64,
+    pub report_count: u64,
     /// 포스트가 생성된 날짜이다.
     pub create_at: String,
 }
 
 impl Post {
-    pub fn new(uid: String, title: String, user: String, language: String, data: String) -> Self {
+    pub fn new(user_id: String, title: String, language: String, data: String) -> Self {
         Self {
-            id: 0,
-            uid,
+            post_id: 0,
+            user_id: user_id.clone(),
             title,
-            user_name: user,
             language,
+            user_name: User::get_user(user_id).expect("Unknown User").user_name,
             data,
             likes: 0,
             report_count: 0,
             create_at: "2022-10-11 21:29:30".to_string(),
+        }
+    }
+
+    pub fn from_db(
+        post_id: u64,
+        user_id: String,
+        title: String,
+        language: String,
+        data: String,
+        likes: u64,
+        report_count: u64,
+        create_at: String,
+    ) -> Self {
+        Self {
+            post_id,
+            user_id: user_id.clone(),
+            title,
+            language,
+            user_name: User::get_user(user_id).expect("Unknown User").user_name,
+            data,
+            likes,
+            report_count,
+            create_at,
         }
     }
 }
@@ -64,9 +90,8 @@ impl Post {
 ///
 #[derive(Deserialize, Serialize, Debug)]
 pub struct PostRequest {
-    uid: String,
+    user_id: String,
     title: String,
-    user_name: String,
     language: String,
     data: String,
 }
@@ -111,18 +136,8 @@ pub async fn get_posts() -> impl Responder {
     let mut conn = pool.get_conn().unwrap();
     let results = conn
         .query_map(
-            "select id, uid, title, user_name, language, substr(data, 1, 35), likes, report_count, create_at from post",
-            |(id, uid, title, user_name, language, data, likes, report_count, create_at)| Post {
-                id,
-                uid,
-                title,
-                user_name,
-                language,
-                data,
-                likes,
-                report_count,
-                create_at,
-            },
+            "select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post",
+            |(post_id, user_id, title, language, data, likes, report_count, create_at)| Post::from_db(post_id, user_id, title, language, data, likes, report_count, create_at)
         )
         .unwrap();
     HttpResponse::Ok()
@@ -169,19 +184,20 @@ pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
     let pool = Pool::new(opts).unwrap();
     let mut conn = pool.get_conn().unwrap();
     let result = conn
-        .query_first(format!("select * from post where id={}", post_id))
+        .query_first(format!("select * from post where post_id={}", post_id))
         .unwrap()
         .map(
-            |(id, uid, title, user_name, language, data, likes, report_count, create_at)| Post {
-                id,
-                uid,
-                title,
-                user_name,
-                language,
-                data,
-                likes,
-                report_count,
-                create_at,
+            |(post_id, user_id, title, language, data, likes, report_count, create_at)| {
+                Post::from_db(
+                    post_id,
+                    user_id,
+                    title,
+                    language,
+                    data,
+                    likes,
+                    report_count,
+                    create_at,
+                )
             },
         );
     HttpResponse::Ok()
@@ -190,12 +206,11 @@ pub async fn get_post(post_id: web::Path<String>) -> impl Responder {
 }
 
 #[post("/api/posts")]
-pub async fn new(request: Json<PostRequest>) -> impl Responder {
+pub async fn make_post(request: Json<PostRequest>) -> impl Responder {
     println!("POST /api/posts");
     let new_post = Post::new(
-        request.uid.clone(),
+        request.user_id.clone(),
         request.title.clone(),
-        request.user_name.clone(),
         request.language.clone(),
         request.data.clone(),
     );
@@ -233,12 +248,11 @@ pub async fn new(request: Json<PostRequest>) -> impl Responder {
     let pool = Pool::new(opts).unwrap();
     let mut conn = pool.get_conn().unwrap();
     conn.exec_drop(
-        r"insert into post(uid, title, user_name, language, data, likes, report_count)
-        values(:uid, :title, :user_name, :language, :data, :likes, :report_count)",
+        r"insert into post(user_id, title, language, data, likes, report_count)
+        values(:user_id, :title, :language, :data, :likes, :report_count)",
         params! {
-            "uid" => new_post.uid,
+            "user_id" => new_post.user_id,
             "title" => new_post.title,
-            "user_name" => new_post.user_name,
             "language" => new_post.language,
             "data" => new_post.data,
             "likes" => new_post.likes,
