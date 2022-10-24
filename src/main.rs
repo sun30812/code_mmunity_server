@@ -1,11 +1,10 @@
 use actix_cors::Cors;
 use actix_web::{App, HttpServer};
+use code_mmunity_server::likes;
+use code_mmunity_server::post;
+use code_mmunity_server::user;
 use std::env;
 use std::net::Ipv4Addr;
-
-mod likes;
-mod post;
-mod user;
 
 /// 서버의 시작점이다.
 ///

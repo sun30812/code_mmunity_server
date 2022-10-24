@@ -1,4 +1,4 @@
-//! # Likes
+//! # 공감 관련 동작을 정의하는 모듈
 //!
 //! `likes`는 코드뮤니티에서 공감 관련 기능 처리를 위한
 //! 메서드들로 구성되어 있다.
@@ -10,19 +10,32 @@ use serde::Deserialize;
 use std::env;
 use std::path::Path;
 
+/// 공감 수를 늘릴지 줄일지 선택하는 모드이다.
 #[derive(Deserialize)]
 pub enum LikeMode {
+    /// 공감 수 증가
     Increment,
+    /// 공감 수 감소
     Decrement,
 }
 
+/// 공감 관련 작업을 요청받았을 때 필요한 구조체
+///
+/// `post_id`에는 공감 수를 줄이거나 늘릴 포스트의 고유 ID가 들어가고
+/// `mode`에는 `LikeMode`에 따라 공감을 늘리는 요청인지 줄이는 요청인지 확인한다.
+///
 #[derive(Deserialize)]
 pub struct LikeRequest {
+    /// 포스트의 고유 ID이다.
     post_id: i64,
+    /// 공감 수를 늘릴지 줄일지 선택하는 모드이다.
     mode: LikeMode,
 }
 
 /// 공감 관련 작업을 요청받았을 때 수행하는 동작
+///
+/// `info`에는 쿼리 스트링을 통해 `LikeRequest` 구조체에 명시된 값을 받아 동작을 처리한다.
+///
 #[patch("/api/likes")]
 pub async fn modify_likes(info: web::Query<LikeRequest>) -> impl Responder {
     println!("PATCH /api/likes");
