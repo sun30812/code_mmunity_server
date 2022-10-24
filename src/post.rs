@@ -7,7 +7,7 @@
 //! 이곳에서 수행한다.
 
 use actix_web::web::Json;
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{delete, get, post, web, HttpResponse, Responder};
 use mysql::prelude::*;
 use mysql::*;
 use serde::{Deserialize, Serialize};
@@ -94,6 +94,14 @@ pub struct PostRequest {
     title: String,
     language: String,
     data: String,
+}
+/// JSON 을 통해 삭제해야 할 포스트를 받을 때 필요한 구조체이다.
+///
+///
+#[derive(Deserialize)]
+pub struct DeletePostRequest {
+    user_id: String,
+    post_id: String,
 }
 
 /// 포스트에 대해 GET 요청을 받는 경우의 전체 포스트를 전달하는 동작을 정의한 메서드이다.
@@ -262,6 +270,56 @@ pub async fn make_post(request: Json<PostRequest>) -> impl Responder {
             "data" => new_post.data,
             "likes" => new_post.likes,
             "report_count" => new_post.report_count,
+        },
+    ) {
+        Ok(_) => HttpResponse::Created(),
+        Err(_) => HttpResponse::InternalServerError(),
+    }
+    // .unwrap();
+    // HttpResponse::Created()
+}
+
+#[delete("/api/posts")]
+pub async fn delete_post(request: web::Query<DeletePostRequest>) -> impl Responder {
+    println!("DELETE /api/posts");
+    let ssl =
+        match env::var("USE_SSL") {
+            Ok(value) => {
+                if value == "true" {
+                    Some(SslOpts::default().with_root_cert_path(Some(Path::new(
+                        "./cert/DigiCertGlobalRootCA.crt.pem",
+                    ))))
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        };
+    let opts = OptsBuilder::new()
+        .ip_or_hostname(Some(
+            env::var("DB_SERVER").expect("DB_SERVER가 설정되지 않음"),
+        ))
+        .tcp_port(
+            env::var("DB_PORT")
+                .expect("DB_PORT가 설정되지 않음")
+                .parse::<u16>()
+                .expect("DB_PORT가 올바른 형식이 아님"),
+        )
+        .user(Some(env::var("DB_USER").expect("DB_USER가 설정되지 않음")))
+        .pass(Some(
+            env::var("DB_PASSWD").expect("DB_PASSWD가 설정되지 않음"),
+        ))
+        .db_name(Some(
+            env::var("DB_DATABASE").expect("DB_DATABASE가 설정되지 않음"),
+        ))
+        .ssl_opts(ssl);
+    let pool = Pool::new(opts).unwrap();
+    let mut conn = pool.get_conn().unwrap();
+    match conn.exec_drop(
+        "delete from post where user_id = :user_id and post_id = :post_id",
+        params! {
+            "user_id" => request.user_id.clone(),
+            "post_id" => request.post_id.clone(),
         },
     ) {
         Ok(_) => HttpResponse::Created(),
