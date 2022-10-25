@@ -5,3 +5,6 @@
 /local.settings.json
 /.DS_STORE
 .vscode/*
+.firebase
+.firebaserc
+firebase.json

@@ -23,12 +23,12 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::permissive();
         App::new()
             .wrap(cors)
-            .service(user::new_user)
-            .service(post::get_posts)
-            .service(post::get_post)
-            .service(post::delete_post)
-            .service(likes::modify_likes)
-            .service(post::make_post)
+            .service(user::new_user_api)
+            .service(post::get_posts_api)
+            .service(post::get_post_api)
+            .service(post::delete_post_api)
+            .service(likes::modify_likes_api)
+            .service(post::insert_post_api)
     })
     .bind((addr, port))?
     .run()

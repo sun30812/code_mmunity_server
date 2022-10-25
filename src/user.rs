@@ -42,6 +42,14 @@ impl User {
     ///     Some(user) => println!("사용자의 이름은 {} 입니다.", user.user_name),
     ///     None => println!("존재하지 않는 사용자입니다.")
     /// }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// 해당 메서드는 아래와 같은 경우 패닉이 발생한다.
+    /// - DB접속에 필요한 환경변수가 주어지지 않은 경우
+    /// - DB에 접속이 제한시간을 초과한 경우
+    /// - DB 서버 접속에 SSL을 사용하는데 인증서 파일이 존재하지 않는 경우
     pub fn get_user(user_id: String) -> Option<Self> {
         let ssl = match env::var("USE_SSL") {
             Ok(value) => {
@@ -81,16 +89,31 @@ impl User {
             .map(|(user_id, user_name)| User { user_id, user_name });
         result
     }
-}
-/// 새로운 사용자를 등록할 때 사용되는 메서드
-///
-/// `new_user`에는 쿼리 스트링을 통해 `User` 구조체에 명시된 값을 받아 동작을 처리한다.
-///
-#[post("/api/users")]
-pub async fn new_user(new_user: web::Query<User>) -> impl Responder {
-    println!("POST /api/users");
-    let ssl =
-        match env::var("USE_SSL") {
+    /// 새로운 사용자를 DB에 등록할 때 사용되는 메서드
+    ///
+    /// `new_user`에는 쿼리 스트링을 통해 `User` 구조체에 명시된 값을 받아 동작을 처리한다.
+    /// 처리과정에 문제가 생겨서 처리가 불가능 한 경우 예외 처리를 할 수 있도록 `Result<()>`형을 반환한다.
+    ///
+    /// # 예제
+    /// ```
+    /// let new_user = User {
+    ///     user_id: "unique_id_for_user".to_string(),
+    ///     user_name: "user_name".to_string()
+    /// };
+    /// match User::new_user(new_user) {
+    ///     Ok(_) => HttpResponse::Created(),
+    ///     Err(_) => HttpResponse::BadRequest(),
+    /// }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// 해당 메서드는 아래와 같은 경우 패닉이 발생한다.
+    /// - DB접속에 필요한 환경변수가 주어지지 않은 경우
+    /// - DB에 접속이 제한시간을 초과한 경우
+    /// - DB 서버 접속에 SSL을 사용하는데 인증서 파일이 존재하지 않는 경우
+    pub fn new_user(new_user: web::Query<User>) -> Result<()> {
+        let ssl = match env::var("USE_SSL") {
             Ok(value) => {
                 if value == "true" {
                     Some(SslOpts::default().with_root_cert_path(Some(Path::new(
@@ -102,34 +125,42 @@ pub async fn new_user(new_user: web::Query<User>) -> impl Responder {
             }
             Err(_) => None,
         };
-    let opts = OptsBuilder::new()
-        .ip_or_hostname(Some(
-            env::var("DB_SERVER").expect("DB_SERVER가 설정되지 않음"),
-        ))
-        .tcp_port(
-            env::var("DB_PORT")
-                .expect("DB_PORT가 설정되지 않음")
-                .parse::<u16>()
-                .expect("DB_PORT가 올바른 형식이 아님"),
-        )
-        .user(Some(env::var("DB_USER").expect("DB_USER가 설정되지 않음")))
-        .pass(Some(
-            env::var("DB_PASSWD").expect("DB_PASSWD가 설정되지 않음"),
-        ))
-        .db_name(Some(
-            env::var("DB_DATABASE").expect("DB_DATABASE가 설정되지 않음"),
-        ))
-        .ssl_opts(ssl);
-    let pool = Pool::new(opts).unwrap();
-    let mut conn = pool.get_conn().unwrap();
-    conn.exec_drop(
-        r"replace into user
+        let opts = OptsBuilder::new()
+            .ip_or_hostname(Some(
+                env::var("DB_SERVER").expect("DB_SERVER가 설정되지 않음"),
+            ))
+            .tcp_port(
+                env::var("DB_PORT")
+                    .expect("DB_PORT가 설정되지 않음")
+                    .parse::<u16>()
+                    .expect("DB_PORT가 올바른 형식이 아님"),
+            )
+            .user(Some(env::var("DB_USER").expect("DB_USER가 설정되지 않음")))
+            .pass(Some(
+                env::var("DB_PASSWD").expect("DB_PASSWD가 설정되지 않음"),
+            ))
+            .db_name(Some(
+                env::var("DB_DATABASE").expect("DB_DATABASE가 설정되지 않음"),
+            ))
+            .ssl_opts(ssl);
+        let pool = Pool::new(opts).unwrap();
+        let mut conn = pool.get_conn().unwrap();
+        conn.exec_drop(
+            r"replace into user
         values(:user_id, :user_name)",
-        params! {
-            "user_id" => new_user.user_id.clone(),
-            "user_name" => new_user.user_name.clone()
-        },
-    )
-    .unwrap();
-    HttpResponse::Created()
+            params! {
+                "user_id" => new_user.user_id.clone(),
+                "user_name" => new_user.user_name.clone()
+            },
+        )
+    }
+}
+
+#[post("/api/users")]
+pub async fn new_user_api(new_user: web::Query<User>) -> impl Responder {
+    println!("POST /api/users");
+    match User::new_user(new_user) {
+        Ok(_) => HttpResponse::Created(),
+        Err(_) => HttpResponse::BadRequest(),
+    }
 }
