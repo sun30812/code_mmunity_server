@@ -317,6 +317,28 @@ impl Post {
             },
         )
     }
+    /// 포스트 객체를 DB에서 제거하는 메서드이다.
+    ///
+    /// Sql명령이 정상적으로 작동되지 않은 경우에 예외 처리를 할 수 있도록
+    /// `Result<()>`로 값을 반환한다.
+    /// # 예제
+    /// ```
+    /// use code_mmunity_server::post::Post;
+    /// let new_post = Post::new(
+    ///    "unique_id_for_user".to_string(),
+    ///    "Post Title".to_string(),
+    ///    "rust".to_string(),
+    ///    "Rust is awsome".to_string(),
+    /// );
+    /// let trash_post_request = DeletePostRequest { user_id: "unique_user_id".to_string(), post_id: "unique_post_id".to_string() };
+    /// Post::delete_post(trash_post_request).expect("작업 중 문제가 발생하였습니다.")
+    /// ```
+    /// # Panics
+    ///
+    /// 해당 메서드는 아래와 같은 경우 패닉이 발생한다.
+    /// - DB접속에 필요한 환경변수가 주어지지 않은 경우
+    /// - DB에 접속이 제한시간을 초과한 경우
+    /// - DB 서버 접속에 SSL을 사용하는데 인증서 파일이 존재하지 않는 경우
     pub fn delete_post(request: web::Query<DeletePostRequest>) -> Result<()> {
         let ssl = match env::var("USE_SSL") {
             Ok(value) => {
