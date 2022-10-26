@@ -177,7 +177,7 @@ impl Post {
         let mut conn = pool.get_conn().unwrap();
         conn
         .query_map(
-            "select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post",
+            "select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post order by post_id desc",
             |(post_id, user_id, title, language, data, likes, report_count, create_at)| Post::from_db(post_id, user_id, title, language, data, likes, report_count, create_at)
         )
         .unwrap()
