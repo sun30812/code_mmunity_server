@@ -10,7 +10,7 @@ use serde::Deserialize;
 use std::env;
 use std::path::Path;
 
-/// 공감 수를 늘릴지 줄일지를 나타내는 열거형이다.
+/// 공감 수를 늘릴지 줄일지 선택하는 모드이다.
 #[derive(Deserialize)]
 pub enum LikeMode {
     /// 공감 수 증가

@@ -183,7 +183,11 @@ impl Post {
         let mut conn = pool.get_conn().unwrap();
         conn
         .query_map(
+<<<<<<< HEAD
             format!("select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post order by {}", query_order),
+=======
+            "select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post",
+>>>>>>> parent of e56df72 (포스트를 최신 순으로 가져오도록 변경)
             |(post_id, user_id, title, language, data, likes, report_count, create_at)| Post::from_db(post_id, user_id, title, language, data, likes, report_count, create_at)
         )
         .unwrap()
