@@ -143,12 +143,7 @@ impl Post {
     /// - DB접속에 필요한 환경변수가 주어지지 않은 경우
     /// - DB에 접속이 제한시간을 초과한 경우
     /// - DB 서버 접속에 SSL을 사용하는데 인증서 파일이 존재하지 않는 경우
-    pub fn get_posts(order: PostOrder) -> Vec<Self> {
-        let query_order = match order {
-            PostOrder::Recent => "post_id desc",
-            PostOrder::Old => "post_id",
-            PostOrder::Like => "likes desc",
-        };
+    pub fn get_posts() -> Vec<Self> {
         let ssl = match env::var("USE_SSL") {
             Ok(value) => {
                 if value == "true" {
@@ -183,11 +178,7 @@ impl Post {
         let mut conn = pool.get_conn().unwrap();
         conn
         .query_map(
-<<<<<<< HEAD
-            format!("select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post order by {}", query_order),
-=======
-            "select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post",
->>>>>>> parent of e56df72 (포스트를 최신 순으로 가져오도록 변경)
+            "select post_id, user_id, title, language, substr(data, 1, 35), likes, report_count, create_at from post order by post_id desc",
             |(post_id, user_id, title, language, data, likes, report_count, create_at)| Post::from_db(post_id, user_id, title, language, data, likes, report_count, create_at)
         )
         .unwrap()
@@ -392,17 +383,6 @@ impl Post {
     }
 }
 
-/// 포스트를 어떤 순으로 정렬할 지를 나타내는 열거형이다.
-#[derive(Deserialize)]
-pub enum PostOrder {
-    /// 최근 게시글부터 보기
-    Recent,
-    /// 오래된 게시글부터 보기
-    Old,
-    /// 공감이 많은 것 부터 보기
-    Like,
-}
-
 /// JSON 을 통해 새로 등록해야 할 포스트를 받을 때 필요한 구조체이다.
 #[derive(Deserialize, Serialize)]
 pub struct PostRequest {
@@ -421,9 +401,9 @@ pub struct DeletePostRequest {
 }
 
 #[get("/api/posts")]
-pub async fn get_posts_api(order: web::Query<PostOrder>) -> impl Responder {
+pub async fn get_posts_api() -> impl Responder {
     println!("GET /api/posts");
-    let results = Post::get_posts(order.0);
+    let results = Post::get_posts();
     HttpResponse::Ok()
         .insert_header(("Content-Type", "application/json;charset=utf-8"))
         .json(results)
