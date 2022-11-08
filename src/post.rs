@@ -272,7 +272,7 @@ impl Post {
     /// - DB접속에 필요한 환경변수가 주어지지 않은 경우
     /// - DB에 접속이 제한시간을 초과한 경우
     /// - DB 서버 접속에 SSL을 사용하는데 인증서 파일이 존재하지 않는 경우
-    pub fn insert_post(self) -> Result<()> {
+    pub fn insert_db(self) -> Result<()> {
         let ssl = match env::var("USE_SSL") {
             Ok(value) => {
                 if value == "true" {
@@ -432,7 +432,7 @@ pub async fn insert_post_api(request: Json<PostRequest>) -> impl Responder {
         request.language.clone(),
         request.data.clone(),
     );
-    match new_post.insert_post() {
+    match new_post.insert_db() {
         Ok(_) => HttpResponse::Created(),
         Err(_) => HttpResponse::InternalServerError(),
     }

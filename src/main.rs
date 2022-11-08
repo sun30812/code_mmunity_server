@@ -1,5 +1,6 @@
 use actix_cors::Cors;
 use actix_web::{App, HttpServer};
+use code_mmunity_server::comment;
 use code_mmunity_server::likes;
 use code_mmunity_server::post;
 use code_mmunity_server::user;
@@ -29,6 +30,8 @@ async fn main() -> std::io::Result<()> {
             .service(post::delete_post_api)
             .service(likes::modify_likes_api)
             .service(post::insert_post_api)
+            .service(comment::get_comment_api)
+            .service(comment::insert_comment_api)
     })
     .bind((addr, port))?
     .run()

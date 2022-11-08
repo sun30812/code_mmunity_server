@@ -26,8 +26,10 @@ pub enum LikeMode {
 ///
 #[derive(Deserialize)]
 pub struct LikeRequest {
+    /// 사용자의 고유 ID이다.
+    pub user_id: String,
     /// 포스트의 고유 ID이다.
-    pub post_id: i64,
+    pub post_id: u32,
     /// 공감 수를 늘릴지 줄일지 선택하는 모드이다.
     pub mode: LikeMode,
 }
@@ -51,7 +53,7 @@ impl LikeRequest {
     /// - DB접속에 필요한 환경변수가 주어지지 않은 경우
     /// - DB에 접속이 제한시간을 초과한 경우
     /// - DB 서버 접속에 SSL을 사용하는데 인증서 파일이 존재하지 않는 경우
-    pub fn modify_likes(info: web::Query<LikeRequest>) -> Result<()> {
+    pub fn modify_likes(info: web::Query<LikeRequest>) {
         let ssl = match env::var("USE_SSL") {
             Ok(value) => {
                 if value == "true" {
@@ -85,22 +87,48 @@ impl LikeRequest {
         let pool = Pool::new(opts).unwrap();
         let mut conn = pool.get_conn().unwrap();
         match info.mode {
-            LikeMode::Increment => conn.exec_drop(
-                r"update post
+            LikeMode::Increment => {
+                conn.exec_drop(
+                    r"update post
             set likes = likes + 1
             where post_id = :post_id",
-                params! {
-                    "post_id" => info.post_id.clone()
-                },
-            ),
-            LikeMode::Decrement => conn.exec_drop(
-                r"update post
+                    params! {
+                        "post_id" => info.post_id
+                    },
+                )
+                .expect("Increment like error");
+                conn.exec_drop(
+                    r"insert into react
+            values (:user_id, :post_id, like)
+            ",
+                    params! {
+                        "user_id" => info.user_id.clone(),
+                        "post_id" => info.post_id
+                    },
+                )
+                .expect("Update react table error");
+            }
+            LikeMode::Decrement => {
+                conn.exec_drop(
+                    r"update post
             set likes = likes - 1
             where post_id = :post_id",
-                params! {
-                    "post_id" => info.post_id.clone()
-                },
-            ),
+                    params! {
+                        "post_id" => info.post_id.clone()
+                    },
+                )
+                .expect("Decrement like error");
+                conn.exec_drop(
+                    r"delete from react
+            where user_id = :user_id and post_id = :post_id and react_type = like)
+            ",
+                    params! {
+                        "user_id" => info.user_id.clone(),
+                        "post_id" => info.post_id
+                    },
+                )
+                .expect("Update react table error");
+            }
         }
     }
 }
@@ -108,12 +136,8 @@ impl LikeRequest {
 #[patch("/api/likes")]
 pub async fn modify_likes_api(info: web::Query<LikeRequest>) -> impl Responder {
     println!("PATCH /api/likes");
-    match LikeRequest::modify_likes(info) {
-        Ok(_) => HttpResponse::Created()
-            .insert_header(("Content-Type", "application/text;charset=utf-8;"))
-            .body("update likes"),
-        Err(error) => HttpResponse::BadRequest()
-            .insert_header(("Content-Type", "application/text;charset=utf-8;"))
-            .body(error.to_string()),
-    }
+    LikeRequest::modify_likes(info);
+    HttpResponse::Created()
+        .insert_header(("Content-Type", "application/text;charset=utf-8;"))
+        .body("Like Request Submitied")
 }
