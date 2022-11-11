@@ -25,6 +25,8 @@ pub struct Comment {
     pub user_name: String,
     /// 댓글의 내용이다.
     pub data: String,
+    /// 댓글 작성 날짜 및 시간이다.
+    pub create_at: String,
 }
 
 impl Comment {
@@ -32,13 +34,20 @@ impl Comment {
     ///
     /// `comment_id`, `post_id`, `user_id`를 입력받아서 댓글 객체를 생성한다.
     /// 생성된 댓글 객체는 DB에 등록과 같은 동작이 가능하다.
-    pub fn new(comment_id: Option<u32>, post_id: u32, user_id: String, data: String) -> Self {
+    pub fn new(
+        comment_id: Option<u32>,
+        post_id: u32,
+        user_id: String,
+        data: String,
+        create_at: Option<String>,
+    ) -> Self {
         Self {
             comment_id: comment_id.unwrap_or(0),
             post_id,
             user_id: user_id.clone(),
             user_name: User::get_user(user_id).expect("Unknown User").user_name,
             data,
+            create_at: create_at.unwrap_or("".to_string()),
         }
     }
 
@@ -80,7 +89,9 @@ impl Comment {
                 "select * from comment where post_id = {} order by comment_id desc",
                 post_id
             ),
-            |(comment_id, post_id, user_id, data)| Self::new(comment_id, post_id, user_id, data),
+            |(comment_id, post_id, user_id, data, create_at)| {
+                Self::new(comment_id, post_id, user_id, data, create_at)
+            },
         )
         .unwrap()
     }
@@ -154,6 +165,7 @@ pub struct CommentRequest {
     post_id: u32,
     user_id: String,
     data: String,
+    create_at: String,
 }
 
 #[get("/api/comments/{post_id}")]
@@ -173,6 +185,7 @@ pub async fn insert_comment_api(request: Json<CommentRequest>) -> impl Responder
         request.post_id,
         request.user_id.clone(),
         request.data.clone(),
+        None,
     );
     match new_comment.insert_db() {
         Ok(_) => HttpResponse::Created(),
