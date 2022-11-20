@@ -165,7 +165,6 @@ pub struct CommentRequest {
     post_id: u32,
     user_id: String,
     data: String,
-    create_at: String,
 }
 
 #[get("/api/comments/{post_id}")]
