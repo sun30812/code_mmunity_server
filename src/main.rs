@@ -28,6 +28,7 @@ async fn main() -> std::io::Result<()> {
             .service(post::get_posts_api)
             .service(post::get_post_api)
             .service(user::get_user_api)
+            .service(user::update_user_api)
             .service(user::delete_user_api)
             .service(post::delete_post_api)
             .service(likes::modify_likes_api)
