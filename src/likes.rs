@@ -98,12 +98,13 @@ impl LikeRequest {
                 )
                 .expect("Increment like error");
                 conn.exec_drop(
-                    r"insert into react
-            values (:user_id, :post_id, like)
+                    r"insert into react (user_id, post_id, react_kind)
+            values (:user_id, :post_id, :like)
             ",
                     params! {
                         "user_id" => info.user_id.clone(),
-                        "post_id" => info.post_id
+                        "post_id" => info.post_id,
+                        "like" => "like"
                     },
                 )
                 .expect("Update react table error");
@@ -120,11 +121,12 @@ impl LikeRequest {
                 .expect("Decrement like error");
                 conn.exec_drop(
                     r"delete from react
-            where user_id = :user_id and post_id = :post_id and react_type = like)
+            where user_id = :user_id and post_id = :post_id and react_kind = :react_kind
             ",
                     params! {
                         "user_id" => info.user_id.clone(),
-                        "post_id" => info.post_id
+                        "post_id" => info.post_id,
+                        "react_kind" => "like",
                     },
                 )
                 .expect("Update react table error");

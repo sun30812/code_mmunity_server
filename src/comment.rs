@@ -15,8 +15,6 @@ use crate::user::User;
 
 #[derive(Deserialize, Serialize)]
 pub struct Comment {
-    /// 댓글의 고유 ID이다.
-    pub comment_id: u32,
     /// 게시글의 고유 ID이다.
     pub post_id: u32,
     /// 사용자의 고유 ID이다.
@@ -35,14 +33,12 @@ impl Comment {
     /// `comment_id`, `post_id`, `user_id`를 입력받아서 댓글 객체를 생성한다.
     /// 생성된 댓글 객체는 DB에 등록과 같은 동작이 가능하다.
     pub fn new(
-        comment_id: Option<u32>,
         post_id: u32,
         user_id: String,
         data: String,
         create_at: Option<String>,
     ) -> Self {
         Self {
-            comment_id: comment_id.unwrap_or(0),
             post_id,
             user_id: user_id.clone(),
             user_name: User::get_user(user_id).expect("Unknown User").user_name,
@@ -86,11 +82,11 @@ impl Comment {
         let mut conn = pool.get_conn().unwrap();
         conn.query_map(
             format!(
-                "select * from comment where post_id = {} order by comment_id desc",
+                "select * from comment where post_id = {} order by create_at desc",
                 post_id
             ),
-            |(comment_id, post_id, user_id, data, create_at)| {
-                Self::new(comment_id, post_id, user_id, data, create_at)
+            |(post_id, user_id, data, create_at)| {
+                Self::new(post_id, user_id, data, create_at)
             },
         )
         .unwrap()
@@ -102,10 +98,7 @@ impl Comment {
     /// # 예제
     /// ```
     /// use code_mmunity_server::comment::Comment;
-    /// let new_comment = Comment::new(
-    ///     0,
-    ///    "unique_id_for_post".to_string(),
-    /// );
+    ///     /// let new_comment = Comment::new(0, "unique_id_for_post".to_string(), "".to_string(), "".to_string(), None    ///  /// );
     /// new_comment.insert_db().expect("Sql작업 중 문제가 발생하였습니다.")
     /// ```
     /// # Panics
@@ -180,7 +173,6 @@ pub async fn get_comment_api(post_id: web::Path<u32>) -> impl Responder {
 pub async fn insert_comment_api(request: Json<CommentRequest>) -> impl Responder {
     println!("POST /api/comments");
     let new_comment = Comment::new(
-        None,
         request.post_id,
         request.user_id.clone(),
         request.data.clone(),
