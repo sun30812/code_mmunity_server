@@ -25,6 +25,15 @@
 ## 컨테이너 제작하기
 코드뮤니터 백엔드 서버를 구동하는 컨테이너를 제작할 수 있습니다.  
 해당 저장소를 복제하신 후 폴더에 들어가서 `docker build -t code_mmunity_server .` 를 입력하시면 컨테이너를 빌드할 수 있습니다.
+### 특정 Architecture 용으로 빌드하기
+
+해당 컨테이너는 두 가지의 아키텍처를 지원합니다.
+
+- linux/amd64
+- linux/arm64
+
+`docker build` 명령어에 `--platform=linux/amd64` 옵션 등을 추가하여 특정 Architecture 용으로 빌드가 가능합니다.
+
 ### MySql서버 접속에 인증서 파일이 필요한 경우
 
 1. 복제하신 저장소에 cert라는 이름의 폴더를 만들고 만든 폴더에 `DigiCertGlobalRootCA.crt.pem` 파일을 넣어줍니다.
